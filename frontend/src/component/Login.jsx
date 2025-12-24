@@ -21,7 +21,6 @@ const Login = () => {
 
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
-      document.cookie = `token=${res.data.token}; path=/; Secure; SameSite=Strict`;
 
       setSuccessMsg('✅ Login successful!');
       setTimeout(() => navigate('/HomePage'), 1000);

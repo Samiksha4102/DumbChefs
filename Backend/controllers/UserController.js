@@ -54,7 +54,14 @@ export const login = async (req, res) => {
         }
         const token = await jwt.sign(tokenDAta, process.env.JWT_SECRET_KEY, { expiresIn: "30d" });
 
-        return res.status(200).cookie("token", token, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSize: 'strict' }).json({
+        const isProduction = process.env.NODE_ENV === "production" || process.env.FRONTEND_URL;
+
+        return res.status(200).cookie("token", token, {
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            sameSite: isProduction ? 'none' : 'strict',
+            secure: isProduction ? true : false
+        }).json({
             message: "User logged in successfully.",
             success: true,
             user: {
@@ -73,7 +80,13 @@ export const login = async (req, res) => {
 
 export const logout = (req, res) => {
     try {
-        return res.status(200).cookie("token", "", { maxAge: 0 }).json({ message: "User logged out successfully." });
+        const isProduction = process.env.NODE_ENV === "production" || process.env.FRONTEND_URL;
+        return res.status(200).cookie("token", "", {
+            maxAge: 0,
+            httpOnly: true,
+            sameSite: isProduction ? 'none' : 'strict',
+            secure: isProduction ? true : false
+        }).json({ message: "User logged out successfully." });
 
     } catch (error) {
         console.error("Error in logoutUser:", error);
