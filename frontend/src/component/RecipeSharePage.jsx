@@ -10,7 +10,7 @@ const RecipeSharePage = () => {
     useEffect(() => {
         const fetchSharedRecipe = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/recipes/${id}`);
+                const res = await fetch(`process.env.REACT_APP_BACKEND_URL/api/recipes/${id}`);
                 const data = await res.json();
                 setRecipe(data.recipe);
             } catch (err) {

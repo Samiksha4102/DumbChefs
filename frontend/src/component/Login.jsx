@@ -11,7 +11,7 @@ const Login = () => {
     e.preventDefault();
     try {
       const res = await axios.post(
-        'http://localhost:5000/api/v1/user/login',
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v1/user/login`,
         user,
         {
           headers: { 'Content-Type': 'application/json' },

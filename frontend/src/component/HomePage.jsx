@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import NutritionCard from "./NutritionCard.jsx";
 import Chatbot from "./Chatbot.jsx";
 import StarRating from "./StarRating.jsx";
+import Toast from "./Toast.jsx";
 
 function HomePage() {
     const [ingredients, setIngredients] = useState("");
@@ -19,6 +20,13 @@ function HomePage() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showOnlyRecipes, setShowOnlyRecipes] = useState(false);
     const [recipeRatings, setRecipeRatings] = useState({});
+    const [hasNoResults, setHasNoResults] = useState(false); // New state for tracking empty results
+    const [toast, setToast] = useState(null); // { message, type }
+
+    const showToast = (message, type = "info") => {
+        setToast({ message, type });
+    };
+
     const [selectedFilterOption, setSelectedFilterOption] = useState({
         Cuisine: "",
         Mealtype: "",
@@ -42,10 +50,31 @@ function HomePage() {
         </div>
     );
 
+    // ===== Component for Image with Loading State =====
+    const ImageWithLoader = ({ src, alt }) => {
+        const [loaded, setLoaded] = useState(false);
+
+        return (
+            <div className="w-full h-full relative bg-gray-800">
+                {!loaded && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                    </div>
+                )}
+                <img
+                    alt={alt}
+                    src={src}
+                    className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+                    onLoad={() => setLoaded(true)}
+                />
+            </div>
+        );
+    };
+
     // ===== Fetch nutrition info =====
     const fetchNutrition = async (recipeContent) => {
         try {
-            const res = await fetch("http://localhost:5000/nutrition", {
+            const res = await fetch("process.env.REACT_APP_BACKEND_URL/nutrition", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ recipeContent }),
@@ -60,34 +89,28 @@ function HomePage() {
 
 
     // ===Share Recipes ==
-  const handleShare = (recipe) => {
-  // Create an object with only the necessary recipe data
-  const dataToShare = {
-    name: recipe.name,
-    content: recipe.content,
-    image: recipe.image,
-    videoLink: recipe.videoLink,
-    orderLink: recipe.orderLink,
-  };
+    const handleShare = (recipe) => {
+        // Enforce Save before Share
+        if (!savedRecipes.has(recipe.id)) {
+            showToast("Please save the recipe first to share it!", "warning");
+            return;
+        }
 
-  // Encode data as base64 to keep URL safe and shorter than JSON.stringify
-  const encodedData = btoa(JSON.stringify(dataToShare));
+        // Construct URL with recipe ID
+        const shareUrl = `${window.location.origin}/recipes/share/${recipe.id}`;
 
-  // Construct URL with encoded data in URL hash (so it's not sent to server)
-  const shareUrl = `${window.location.origin}/recipes/share#${encodedData}`;
-
-  if (navigator.share) {
-    navigator.share({
-      title: recipe.name,
-      text: `Check out this recipe: ${recipe.name}`,
-      url: shareUrl,
-    }).catch((err) => console.error("Share failed:", err));
-  } else {
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => alert("🔗 Share link copied to clipboard!"))
-      .catch((err) => console.error("Clipboard error:", err));
-  }
-};
+        if (navigator.share) {
+            navigator.share({
+                title: recipe.name,
+                text: `Check out this recipe: ${recipe.name}`,
+                url: shareUrl,
+            }).catch((err) => console.error("Share failed:", err));
+        } else {
+            navigator.clipboard.writeText(shareUrl)
+                .then(() => showToast("Link copied to clipboard!", "success"))
+                .catch((err) => console.error("Clipboard error:", err));
+        }
+    };
 
     // ===== Fetch recipes list =====
     const handleGenerate = async () => {
@@ -104,6 +127,7 @@ function HomePage() {
 
         try {
             setLoading(true);
+            setHasNoResults(false); // Reset before new search
 
             const params = new URLSearchParams({
                 ingredients: trimmedIngredients.split(",").map(i => i.trim()).join("\n") // ✅ use input ingredients directly
@@ -114,10 +138,10 @@ function HomePage() {
             if (selectedFilterOption.Mealtype) params.append("type", selectedFilterOption.Mealtype.trim());
             if (maxReadyTime) params.append("maxReadyTime", maxReadyTime);
 
-            const res = await fetch(`http://localhost:5000/recipesearch?${params.toString()}`);
+            const res = await fetch(`process.env.REACT_APP_BACKEND_URL/recipesearch?${params.toString()}`);
             const data = await res.json();
 
-            if (data.recipes) {
+            if (data.recipes && data.recipes.length > 0) {
                 setRecipes(data.recipes.map(r => ({
                     id: r.id,
                     name: r.title,
@@ -126,14 +150,16 @@ function HomePage() {
                     orderLink: `https://www.zomato.com/search?q=${encodeURIComponent(r.title)}`, // Zomato search link
                     videoLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(r.title + " recipe")}` // YouTube search
                 })));
+                setShowOnlyRecipes(true);
             } else {
                 setRecipes([]);
+                setHasNoResults(true); // ✅ Set no results flag
             }
         } catch (err) {
             console.error("Error fetching recipes:", err);
             setRecipes([]);
+            setHasNoResults(true);
         } finally {
-            setShowOnlyRecipes(true);
             setLoading(false);
         }
     };
@@ -147,13 +173,23 @@ function HomePage() {
         Rating: "",
     };
 
+    // Helper to check if any filter is active
+    const isAnyFilterActive = Object.values(selectedFilterOption).some(val => val !== "");
+
+    // Clear all filters
+    const clearFilters = () => {
+        setSelectedFilterOption(defaultFilterValues);
+        setActiveFilter(null);
+        setHasNoResults(false); // clear error state
+    };
+
     // ===== Save recipe =====
     const toggleSaveRecipe = async (recipe) => {
         const isAlreadySaved = savedRecipes.has(recipe.id);
 
         const url = isAlreadySaved
-            ? "http://localhost:5000/api/recipes/unsave"
-            : "http://localhost:5000/api/recipes/save";
+            ? "process.env.REACT_APP_BACKEND_URL/api/recipes/unsave"
+            : "process.env.REACT_APP_BACKEND_URL/api/recipes/save";
 
         const body = {
             recipeId: recipe.id,
@@ -188,13 +224,15 @@ function HomePage() {
                 const updated = new Set(prev);
                 if (isAlreadySaved) {
                     updated.delete(recipe.id);
+                    showToast("Recipe removed from saved.", "info");
                 } else {
                     updated.add(recipe.id);
+                    showToast("Recipe saved successfully!", "success");
                 }
                 return updated;
             });
         } else {
-            alert(data.message);
+            showToast(data.message || "Failed to save recipe", "error");
         }
     };
 
@@ -202,7 +240,7 @@ function HomePage() {
     // ===== Handle star click for rating =====
     const handleRateRecipe = async (recipeId, rating, recipeName, recipeImage) => {
         try {
-            const res = await fetch("http://localhost:5000/api/recipes/rate", {
+            const res = await fetch("process.env.REACT_APP_BACKEND_URL/api/recipes/rate", {
                 method: "POST",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -248,7 +286,7 @@ function HomePage() {
             });
 
             const response = await fetch(
-                `http://localhost:5000/recipestream?${params}`,
+                `process.env.REACT_APP_BACKEND_URL/recipestream?${params}`,
                 { method: "GET" }
             );
 
@@ -299,6 +337,7 @@ function HomePage() {
 
     return (
         <div className="min-h-screen bg-black text-white p-6 relative">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div >
 
                 <div className={activeFilter ? "filter blur-sm" : ""}>
@@ -341,17 +380,56 @@ function HomePage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex justify-center gap-6 mt-8 flex-wrap">
+                    <div className="flex justify-center gap-6 mt-8 flex-wrap items-center">
                         {Object.keys(filterOptions).map((btn, idx) => (
                             <button
                                 key={idx}
-                                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-xl text-lg transition-transform transform hover:scale-105"
+                                className={`font-semibold py-3 px-8 rounded-xl text-lg transition-transform transform hover:scale-105 ${selectedFilterOption[btn] ? 'bg-orange-700 ring-2 ring-white' : 'bg-orange-500 hover:bg-orange-600'
+                                    } text-white`}
                                 onClick={() => setActiveFilter(btn)}
                             >
                                 {btn} {selectedFilterOption[btn] && `: ${selectedFilterOption[btn]}`}
                             </button>
                         ))}
+
+                        {/* Clear Filters Button */}
+                        {isAnyFilterActive && (
+                            <button
+                                onClick={clearFilters}
+                                className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg"
+                            >
+                                ✕ Clear Filters
+                            </button>
+                        )}
                     </div>
+
+                    {/* No Results Feedback */}
+                    {hasNoResults && !loading && (
+                        <div className="mt-8 text-center bg-gray-900 bg-opacity-70 p-6 rounded-2xl max-w-2xl mx-auto border border-orange-500/30">
+                            <h3 className="text-2xl font-bold text-orange-400 mb-2">No recipes found 😕</h3>
+                            <p className="text-gray-300 mb-4">
+                                We couldn't find any recipes for <strong>"{ingredients}"</strong> matching your filters.
+                            </p>
+                            <div className="flex flex-col gap-2 text-sm text-gray-400 bg-black/40 p-4 rounded-lg">
+                                <span className="font-semibold text-gray-200">Active Filters:</span>
+                                {isAnyFilterActive ? (
+                                    <ul className="flex flex-wrap justify-center gap-2 mt-2">
+                                        {Object.entries(selectedFilterOption).map(([key, val]) => (
+                                            val && <li key={key} className="bg-gray-700 px-3 py-1 rounded-full border border-gray-600">{key}: <span className="text-orange-300">{val}</span></li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <span>None</span>
+                                )}
+                            </div>
+                            <button
+                                onClick={clearFilters}
+                                className="mt-6 bg-white text-black font-bold py-2 px-6 rounded-full hover:bg-gray-200 transition"
+                            >
+                                Reset all filters & Try again
+                            </button>
+                        </div>
+                    )}
 
                     {/* Recipes Grid */}
                     {loading && <Spinner />}
@@ -390,10 +468,9 @@ function HomePage() {
                                                     <FaBookmark className="text-white" />
                                                 )}
                                             </button> */}
-                                            <img
+                                            <ImageWithLoader
                                                 alt={recipe.name}
                                                 src={recipe.image}
-                                                className="w-full h-full object-cover"
                                             />
                                         </div>
                                         <div className="flex flex-col bg-gray-800 p-4 flex-grow gap-0">
@@ -502,10 +579,9 @@ function HomePage() {
                                         )}
                                     </button>
 
-                                    <img
+                                    <ImageWithLoader
                                         src={selectedRecipe.image}
                                         alt={selectedRecipe.name}
-                                        className="rounded-xl object-cover w-full h-full max-h-[500px]"
                                     />
                                 </div>
 
@@ -528,7 +604,7 @@ function HomePage() {
                                     ) : selectedRecipe.content ? (
                                         <>
                                             <p className="whitespace-pre-line text-gray-700 overflow-y-auto max-h-[300px]">
-                                                {selectedRecipe.content}
+                                                {selectedRecipe.content.replace(/\*\*/g, "")}
                                             </p>
 
                                             {/* Links */}

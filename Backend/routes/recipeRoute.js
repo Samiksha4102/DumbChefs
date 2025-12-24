@@ -3,6 +3,7 @@ import { User } from "../models/userModel.js";
 import isAuthenticated from "../middleware/isAuthenticated.js";
 import Rating from "../models/ratingModel.js";
 import Recipe from "../models/recipeModel.js";
+import axios from "axios";
 const router = express.Router();
 
 // Save a recipe for a logged-in user
@@ -115,15 +116,55 @@ router.get("/saved", isAuthenticated, async (req, res) => {
 router.get("/share/:recipeId", async (req, res) => {
     try {
         const { recipeId } = req.params;
-        const user = await User.findOne({ "savedRecipes.recipeId": recipeId });
-        if (!user) {
-            return res.status(404).json({ message: "Recipe not found." });
+
+        // 1. Try finding in Recipe collection (Global Cache)
+        let recipe = await Recipe.findOne({ recipeId });
+
+        // 2. If found, return it
+        if (recipe) {
+            return res.status(200).json({ recipe });
         }
 
-        const recipe = user.savedRecipes.find(r => r.recipeId === recipeId);
-        res.status(200).json({ recipe });
+        // 3. Fallback: Fetch from Spoonacular
+        if (!process.env.SPOONACULAR_API_KEY) {
+            return res.status(404).json({ message: "Recipe not found in DB and API key missing." });
+        }
+
+        const response = await axios.get(
+            `https://api.spoonacular.com/recipes/${recipeId}/information`,
+            { params: { apiKey: process.env.SPOONACULAR_API_KEY } }
+        );
+
+        if (response.data) {
+            const data = response.data;
+            // Map Spoonacular data to our schema
+            const newRecipe = new Recipe({
+                recipeId: data.id.toString(),
+                name: data.title,
+                image: data.image,
+                content: data.instructions || data.summary || "No instructions available.",
+                ingredientsList: data.extendedIngredients ? data.extendedIngredients.map(i => i.original) : [],
+                videoLink: "",
+                orderLink: "",
+                cuisine: data.cuisines?.join(", ") || "",
+                mealType: data.dishTypes?.join(", ") || "",
+                diet: data.diets?.join(", ") || "",
+                cookingTime: data.readyInMinutes ? `${data.readyInMinutes} min` : "",
+                complexity: "moderate"
+            });
+
+            await newRecipe.save();
+            return res.status(200).json({ recipe: newRecipe });
+        }
+
+        return res.status(404).json({ message: "Recipe not found." });
+
     } catch (error) {
         console.error("Error sharing recipe:", error);
+        // Handle Spoonacular 404 explicitly
+        if (error.response && error.response.status === 404) {
+            return res.status(404).json({ message: "Recipe not found." });
+        }
         res.status(500).json({ message: "Server error while sharing recipe." });
     }
 });

@@ -5,17 +5,17 @@ function OurServices() {
         {
             title: "Smart Recipe Suggestions",
             desc: "Enter your ingredients, and our AI creates delicious meal ideas.",
-            img: "https://images.unsplash.com/photo-1604908176997-4d36a4e0c6d2?auto=format&fit=crop&w=800&q=80"
+            img: "/images/OurServicePage/istockphoto-2200829710-1024x1024 (1).jpg"
         },
         {
             title: "Calorie & Nutrition Tracking",
             desc: "Stay on top of your health goals while enjoying food.",
-            img: "https://images.unsplash.com/photo-1607344645866-009c3c60a5f6?auto=format&fit=crop&w=800&q=80"
+            img: "/images/OurServicePage/calery and nutrition track.jpg"
         },
         {
             title: "Meal Customization",
             desc: "Adjust recipes based on taste, diet type (vegan, keto, etc.), or allergies.",
-            img: "https://images.unsplash.com/photo-1617196038435-c1e4a79e5f2b?auto=format&fit=crop&w=800&q=80"
+            img: "/images/OurServicePage/Meal Customization.jpg"
         },
         {
             title: "Ratings & Recommendations",
@@ -25,7 +25,7 @@ function OurServices() {
         {
             title: "Favorites & Save Recipes",
             desc: "Bookmark your go-to dishes.",
-            img: "https://images.unsplash.com/photo-1589712188858-0d58c8eec6b0?auto=format&fit=crop&w=800&q=80"
+            img: "/images/OurServicePage/Favorites & Save Recipes.jpg"
         },
     ];
 

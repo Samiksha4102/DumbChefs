@@ -1,6 +1,5 @@
-".env" 
-"Backend/.env" 
-"Backend/.env" 
-"Backend/.env" 
-".env" 
-".env" 
+.env
+Backend/.env
+frontend/.env
+node_modules/
+build/

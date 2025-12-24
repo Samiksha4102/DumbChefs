@@ -34,7 +34,7 @@ function ProfilePage() {
     setShowMyRatings(false); // hide ratings
     setShowSavedRecipes(true); // show saved recipes
     try {
-      const response = await axios.get("http://localhost:5000/api/recipes/saved", {
+      const response = await axios.get("process.env.REACT_APP_BACKEND_URL/api/recipes/saved", {
         withCredentials: true,
       });
 
@@ -49,8 +49,8 @@ function ProfilePage() {
   const toggleSaveRecipe = async (recipe) => {
     const isAlreadySaved = savedRecipeSet.has(recipe.id);
     const url = isAlreadySaved
-      ? "http://localhost:5000/api/recipes/unsave"
-      : "http://localhost:5000/api/recipes/save";
+      ? "process.env.REACT_APP_BACKEND_URL/api/recipes/unsave"
+      : "process.env.REACT_APP_BACKEND_URL/api/recipes/save";
 
     const response = await fetch(url, {
       method: "POST",
@@ -87,7 +87,7 @@ function ProfilePage() {
   setLoadingRatings(true);
 
   try {
-    const response = await axios.get("http://localhost:5000/api/recipes/userratings", {
+    const response = await axios.get("process.env.REACT_APP_BACKEND_URL/api/recipes/userratings", {
       withCredentials: true,
     });
     const rated = response.data.ratedRecipes || [];
@@ -302,7 +302,7 @@ useEffect(() => {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/v1/user/update-profile`,
+        `process.env.REACT_APP_BACKEND_URL/api/v1/user/update-profile`,
         {
           username: formData.username,
           email: formData.email,

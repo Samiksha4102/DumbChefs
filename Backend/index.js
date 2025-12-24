@@ -22,7 +22,7 @@ app.use(helmet());
 
 // ========= CORS setup ========= //
 const corsOptions = {
-    origin: "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
 };
 app.use(cors(corsOptions));
@@ -39,56 +39,76 @@ app.use("/api/v1/user", userRoute);
 
 
 
-// ========= Recipe Search Route ========= //
 app.get("/recipesearch", async (req, res) => {
     const { ingredients = "", cuisine = "", diet = "", type = "", maxReadyTime = "" } = req.query;
-
-    console.log("Query received:", req.query);
-    console.log("Spoonacular API Key:", process.env.SPOONACULAR_API_KEY ? "exists" : "missing");
 
     if (!ingredients.trim()) {
         return res.status(400).json({ error: "Ingredients are required" });
     }
 
     try {
-        const response = await axios.get(
-            "https://api.spoonacular.com/recipes/complexSearch",
-            {
-                params: {
-                    apiKey: process.env.SPOONACULAR_API_KEY,
-                    includeIngredients: ingredients.trim(),
-                    cuisine: cuisine?.trim() || undefined,
-                    diet: diet?.trim() || undefined,
-                    type: type?.trim() || undefined,
-                    maxReadyTime: maxReadyTime?.trim() || undefined,
-                    number: 5, // Limit to 4 recipes
-                    addRecipeInformation: true,
-                },
-            }
-        );
+        console.log("👩‍🍳 Generating recipes with Groq...");
+        const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-        // Safely check if response.data.results exists
-        const results = Array.isArray(response.data.results)
-            ? response.data.results.map((r) => ({
-                id: r.id,
-                title: r.title || "Untitled Recipe",
-                image: r.image || "/images/default-recipe.jpg",
-            }))
-            : [];
+        // 1. Ask Groq for recipes
+        const prompt = `
+            You are a creative chef. Generate a list of 5 to 15 unique recipes based on these details:
+            - Ingredients: ${ingredients}
+            - Cuisine: ${cuisine || "Any"}
+            - Diet: ${diet || "Any"}
+            - Meal Type: ${type || "Any"}
+            - Max Time: ${maxReadyTime || "Any"} minutes
 
-        console.log(`Recipes fetched: ${results.length}`);
-        res.json({ recipes: results });
-    } catch (error) {
-        // More detailed error logging
-        if (error.response) {
-            console.error("Spoonacular API Error:", error.response.data);
-        } else {
-            console.error("Recipe Search Error:", error.message);
+            Return ONLY a valid JSON array. Do not include markdown formatting (like \`\`\`json). 
+            Each object must have: "title", "description".
+            "description" should be a short, appetizing summary of the dish (max 2 sentences). Do NOT mention if you corrected spelling or assumed ingredients.
+            Example: [{"title": "Spicy Chicken Curry", "description": "A rich indian curry..."}]
+        `;
+
+        const completion = await client.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+        });
+
+        const rawContent = completion.choices[0]?.message?.content || "[]";
+        // Clean potential markdown code blocks if Groq adds them despite instructions
+        const jsonString = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+
+        let generatedRecipes = [];
+        try {
+            generatedRecipes = JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Failed to parse Groq JSON:", rawContent);
+            return res.json({ recipes: [] }); // Fallback to empty if AI fails
         }
 
-        res.status(500).json({
-            error: "Failed to fetch recipes. Please check Spoonacular API key or try again later.",
+        if (!Array.isArray(generatedRecipes)) generatedRecipes = [];
+
+        console.log(`🤖 Groq generated ${generatedRecipes.length} recipes. Fetching images...`);
+
+        // 2. Generate Images with Pollinations.ai
+        const recipesWithImages = generatedRecipes.map((recipe, index) => {
+            // Create a seed based on title characters to keep image consistent for same title
+            const seed = recipe.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) + index;
+            const encodedPrompt = encodeURIComponent(`${recipe.title} delicious food photography high quality 4k`);
+
+            // Pollinations URL
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true`;
+
+            return {
+                id: `recipe-${Date.now()}-${index}`,
+                title: recipe.title,
+                image: imageUrl,
+                description: recipe.description
+            };
         });
+
+        res.json({ recipes: recipesWithImages });
+
+    } catch (error) {
+        console.error("Recipe Search Error:", error);
+        res.status(500).json({ error: "Failed to generate recipes." });
     }
 });
 
@@ -124,7 +144,9 @@ app.get("/recipestream", async (req, res) => {
             `[Cooking time: ${cookingTime || "least possible"}]`,
             `[Complexity: ${complexity || "easy"}]`,
             "Provide:- Recipe Name- Short Description- Ingredients (only from provided list)- Cooking Time- Servings- Preparation Steps- Cooking Steps, at least 200 words",
-            
+
+            "- Do NOT explicitly label the 'Short Description', just provide the text.",
+            "- Do NOT mention if you corrected spelling errors.",
             "- If no authentic recipe is possible, say: No authentic recipe found with the given inputs."
         ];
 
