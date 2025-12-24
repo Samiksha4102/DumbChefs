@@ -74,7 +74,7 @@ function HomePage() {
     // ===== Fetch nutrition info =====
     const fetchNutrition = async (recipeContent) => {
         try {
-            const res = await fetch("process.env.REACT_APP_BACKEND_URL/nutrition", {
+            const res = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/nutrition`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ recipeContent }),
@@ -138,7 +138,7 @@ function HomePage() {
             if (selectedFilterOption.Mealtype) params.append("type", selectedFilterOption.Mealtype.trim());
             if (maxReadyTime) params.append("maxReadyTime", maxReadyTime);
 
-            const res = await fetch(`process.env.REACT_APP_BACKEND_URL/recipesearch?${params.toString()}`);
+            const res = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/recipesearch?${params.toString()}`);
             const data = await res.json();
 
             if (data.recipes && data.recipes.length > 0) {
@@ -188,8 +188,8 @@ function HomePage() {
         const isAlreadySaved = savedRecipes.has(recipe.id);
 
         const url = isAlreadySaved
-            ? "process.env.REACT_APP_BACKEND_URL/api/recipes/unsave"
-            : "process.env.REACT_APP_BACKEND_URL/api/recipes/save";
+            ? `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/unsave`
+            : `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/save`;
 
         const body = {
             recipeId: recipe.id,
@@ -240,7 +240,7 @@ function HomePage() {
     // ===== Handle star click for rating =====
     const handleRateRecipe = async (recipeId, rating, recipeName, recipeImage) => {
         try {
-            const res = await fetch("process.env.REACT_APP_BACKEND_URL/api/recipes/rate", {
+            const res = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/rate`, {
                 method: "POST",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -286,7 +286,7 @@ function HomePage() {
             });
 
             const response = await fetch(
-                `process.env.REACT_APP_BACKEND_URL/recipestream?${params}`,
+                `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/recipestream?${params}`,
                 { method: "GET" }
             );
 

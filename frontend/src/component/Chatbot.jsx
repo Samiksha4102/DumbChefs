@@ -6,8 +6,8 @@ import { support_info } from "../support_info";
 
 const Chatbot = ({ onClose }) => {
     const [messages, setMessages] = useState([
-    { role: "assistant", content: "How can I assist you today? " },
-]);
+        { role: "assistant", content: "How can I assist you today? " },
+    ]);
 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -25,44 +25,44 @@ const Chatbot = ({ onClose }) => {
 
     // Send message and handle backend response
     const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+        e.preventDefault();
+        if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput("");
-    setLoading(true);
+        const userMessage = { role: "user", content: input };
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
+        setInput("");
+        setLoading(true);
 
-    try {
-        // Prepend support_info as system prompt
-        const response = await fetch("process.env.REACT_APP_BACKEND_URL/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                history: [
-                    { role: "system", content: support_info },
-                    ...newMessages,
-                ],
-            }),
-        });
+        try {
+            // Prepend support_info as system prompt
+            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    history: [
+                        { role: "system", content: support_info },
+                        ...newMessages,
+                    ],
+                }),
+            });
 
-        const data = await response.json();
-        
+            const data = await response.json();
 
-        setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: data.reply },
-        ]);
-    } catch (err) {
-        setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: "⚠️ Error connecting to server." },
-        ]);
-    } finally {
-        setLoading(false);
-    }
-};
+
+            setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: data.reply },
+            ]);
+        } catch (err) {
+            setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: "⚠️ Error connecting to server." },
+            ]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
 

@@ -30,11 +30,11 @@ function ProfilePage() {
 
   // Fetch user's saved recipes
   const fetchSavedRecipes = async () => {
-     setShowUpdateForm(false); // ✅ Hide update form
+    setShowUpdateForm(false); // ✅ Hide update form
     setShowMyRatings(false); // hide ratings
     setShowSavedRecipes(true); // show saved recipes
     try {
-      const response = await axios.get("process.env.REACT_APP_BACKEND_URL/api/recipes/saved", {
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/saved`, {
         withCredentials: true,
       });
 
@@ -49,8 +49,8 @@ function ProfilePage() {
   const toggleSaveRecipe = async (recipe) => {
     const isAlreadySaved = savedRecipeSet.has(recipe.id);
     const url = isAlreadySaved
-      ? "process.env.REACT_APP_BACKEND_URL/api/recipes/unsave"
-      : "process.env.REACT_APP_BACKEND_URL/api/recipes/save";
+      ? `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/unsave`
+      : `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/save`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -81,23 +81,23 @@ function ProfilePage() {
   };
 
   const handleMyRatings = async () => {
-  setShowSavedRecipes(false); // hide saved
-  setShowUpdateForm(false);   // ❗️ hide update profile
-  setShowMyRatings(true);     // show ratings
-  setLoadingRatings(true);
+    setShowSavedRecipes(false); // hide saved
+    setShowUpdateForm(false);   // ❗️ hide update profile
+    setShowMyRatings(true);     // show ratings
+    setLoadingRatings(true);
 
-  try {
-    const response = await axios.get("process.env.REACT_APP_BACKEND_URL/api/recipes/userratings", {
-      withCredentials: true,
-    });
-    const rated = response.data.ratedRecipes || [];
-    setMyRatings(rated);
-  } catch (error) {
-    console.error("Failed to fetch user ratings:", error);
-  } finally {
-    setLoadingRatings(false);
-  }
-};
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/recipes/userratings`, {
+        withCredentials: true,
+      });
+      const rated = response.data.ratedRecipes || [];
+      setMyRatings(rated);
+    } catch (error) {
+      console.error("Failed to fetch user ratings:", error);
+    } finally {
+      setLoadingRatings(false);
+    }
+  };
 
 
   const handleLogout = () => {
@@ -132,7 +132,7 @@ function ProfilePage() {
             >
               Settings
             </button>
-        </div>
+          </div>
         </div>
 
         {/* Logout */}
@@ -259,29 +259,29 @@ export function UpdateProfileForm({ user, setUser, onCancel }) {
   const [showPasswordFields, setShowPasswordFields] = useState(false); // toggle for password
 
   useEffect(() => {
-  if (success) {
-    const timer = setTimeout(() => setSuccess(null), 1000);
-    return () => clearTimeout(timer);
-  }
-}, [success]);
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
-
-useEffect(() => {
-  if (error) {
-    const timer = setTimeout(() => setError(null), 1000);
-    return () => clearTimeout(timer);
-  }
-}, [error]);
 
   useEffect(() => {
-  if (user) {
-    setFormData((prev) => ({
-      ...prev,
-      username: user.username || "",
-      email: user.email || "",
-    }));
-  }
-}, [user]);
+    if (error) {
+      const timer = setTimeout(() => setError(null), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        username: user.username || "",
+        email: user.email || "",
+      }));
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -292,7 +292,7 @@ useEffect(() => {
     setError(null);
     setSuccess(null);
 
-    
+
     if (showPasswordFields && formData.newPassword !== formData.confirmNewPassword) {
       setError("New password and confirmation do not match.");
       return;
@@ -302,7 +302,7 @@ useEffect(() => {
 
     try {
       const res = await axios.put(
-        `process.env.REACT_APP_BACKEND_URL/api/v1/user/update-profile`,
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v1/user/update-profile`,
         {
           username: formData.username,
           email: formData.email,
@@ -351,56 +351,56 @@ useEffect(() => {
         <h3 className="text-lg font-semibold mb-4">Current Information</h3>
         <p><strong>Username:</strong> {user.username}</p>
         <p><strong>Email:</strong> {user.email}</p>
-        
+
         {/* Show password fields only if "Change Password" is clicked */}
         <div className="mt-7 ">
-        {showPasswordFields ? (
-          <>
-            <label className="block mb-3">
-              Current Password:
-              <input
-                type="password"
-                name="currentPassword"
-                value={formData.currentPassword}
-                onChange={handleChange}
-                required
-                className="w-full border p-2 rounded mt-1 text-black"
-              />
-            </label>
+          {showPasswordFields ? (
+            <>
+              <label className="block mb-3">
+                Current Password:
+                <input
+                  type="password"
+                  name="currentPassword"
+                  value={formData.currentPassword}
+                  onChange={handleChange}
+                  required
+                  className="w-full border p-2 rounded mt-1 text-black"
+                />
+              </label>
 
-            <label className="block mb-3">
-              New Password:
-              <input
-                type="password"
-                name="newPassword"
-                value={formData.newPassword}
-                onChange={handleChange}
-                required
-                className="w-full border p-2 rounded mt-1 text-black"
-              />
-            </label>
+              <label className="block mb-3">
+                New Password:
+                <input
+                  type="password"
+                  name="newPassword"
+                  value={formData.newPassword}
+                  onChange={handleChange}
+                  required
+                  className="w-full border p-2 rounded mt-1 text-black"
+                />
+              </label>
 
-            <label className="block mb-3">
-              Confirm New Password:
-              <input
-                type="password"
-                name="confirmNewPassword"
-                value={formData.confirmNewPassword}
-                onChange={handleChange}
-                required
-                className="w-full border p-2 rounded mt-1 text-black"
-              />
-            </label>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowPasswordFields(true)}
-            className="bg-orange-600 text-white py-2 px-4 rounded pt"
-          >
-            Change Password
-          </button>
-        )}
+              <label className="block mb-3">
+                Confirm New Password:
+                <input
+                  type="password"
+                  name="confirmNewPassword"
+                  value={formData.confirmNewPassword}
+                  onChange={handleChange}
+                  required
+                  className="w-full border p-2 rounded mt-1 text-black"
+                />
+              </label>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPasswordFields(true)}
+              className="bg-orange-600 text-white py-2 px-4 rounded pt"
+            >
+              Change Password
+            </button>
+          )}
         </div>
       </div>
 

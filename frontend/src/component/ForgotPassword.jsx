@@ -18,7 +18,7 @@ const ForgotPassword = () => {
         }
 
         try {
-            const res = await axios.post('process.env.REACT_APP_BACKEND_URL/api/v1/user/forgot-password', {
+            const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v1/user/forgot-password`, {
                 username,
                 newPassword,
                 confirmPassword, // optional, if backend supports it
