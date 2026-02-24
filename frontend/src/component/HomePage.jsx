@@ -53,19 +53,26 @@ function HomePage() {
     // ===== Component for Image with Loading State =====
     const ImageWithLoader = ({ src, alt }) => {
         const [loaded, setLoaded] = useState(false);
+        const [error, setError] = useState(false);
 
         return (
             <div className="w-full h-full relative bg-gray-800">
-                {!loaded && (
+                {!loaded && !error && (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                    </div>
+                )}
+                {error && (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm p-4 text-center">
+                        Image Unavailable
                     </div>
                 )}
                 <img
                     alt={alt}
                     src={src}
-                    className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+                    className={`w-full h-full object-cover transition-opacity duration-500 ${loaded && !error ? "opacity-100" : "opacity-0"}`}
                     onLoad={() => setLoaded(true)}
+                    onError={() => { setLoaded(true); setError(true); }}
                 />
             </div>
         );
