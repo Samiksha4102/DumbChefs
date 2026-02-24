@@ -8,6 +8,7 @@ import Groq from "groq-sdk";
 import helmet from "helmet";
 import axios from "axios";
 import recipeRoute from "./routes/recipeRoute.js";
+import imageRoute from "./routes/imageRoute.js";
 import chatRoute from "./routes/chatRoute.js";
 
 dotenv.config();
@@ -36,6 +37,9 @@ app.use("/api/recipes", recipeRoute);
 
 // ========= User Routes ========= //
 app.use("/api/v1/user", userRoute);
+
+// Serve cached/generated images and proxy fetches
+app.use("/images", imageRoute);
 
 
 
@@ -87,22 +91,65 @@ app.get("/recipesearch", async (req, res) => {
 
         console.log(`🤖 Groq generated ${generatedRecipes.length} recipes. Fetching images...`);
 
-        // 2. Generate Images with Pollinations.ai
-        const recipesWithImages = generatedRecipes.map((recipe, index) => {
-            // Create a seed based on title characters to keep image consistent for same title
-            const seed = recipe.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) + index;
-            const encodedPrompt = encodeURIComponent(`${recipe.title} delicious food photography high quality 4k`);
+        // 2. Fetch food images from TheMealDB (free, no key) — run all in parallel
+        const STOP_WORDS = new Set(['with','and','the','style','grilled','fried','baked','roasted','spicy','creamy','stuffed','smoked','crispy','stir','tossed','glazed','marinated','sauteed']);
 
-            // Pollinations URL
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true`;
+        async function getMealImage(title, fallbackIndex) {
+            // Build a list of keywords to try: words from recipe title + main ingredient
+            const keywords = title
+                .split(/[\s,\-]+/)
+                .map(w => w.replace(/[^a-zA-Z]/g, ''))
+                .filter(w => w.length > 3 && !STOP_WORDS.has(w.toLowerCase()));
 
-            return {
-                id: `recipe-${Date.now()}-${index}`,
-                title: recipe.title,
-                image: imageUrl,
-                description: recipe.description
-            };
-        });
+            // Also try the main ingredient from the search
+            const mainIngredient = (ingredients || '').split(',')[0].trim();
+            if (mainIngredient && mainIngredient.length > 2 && !keywords.includes(mainIngredient)) {
+                keywords.push(mainIngredient);
+            }
+
+            for (const keyword of keywords) {
+                try {
+                    const resp = await axios.get(
+                        `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(keyword)}`,
+                        { timeout: 5000 }
+                    );
+                    const meals = resp.data?.meals;
+                    if (meals && meals.length > 0) {
+                        return meals[0].strMealThumb;
+                    }
+                } catch (_) {}
+            }
+
+            // Final fallback: random food from TheMealDB using a letter search
+            const letters = 'bcdfgprs';
+            const letter = letters[fallbackIndex % letters.length];
+            try {
+                const resp = await axios.get(
+                    `https://www.themealdb.com/api/json/v1/1/search.php?f=${letter}`,
+                    { timeout: 5000 }
+                );
+                const meals = resp.data?.meals;
+                if (meals && meals.length > 0) {
+                    return meals[fallbackIndex % meals.length].strMealThumb;
+                }
+            } catch (_) {}
+
+            return `https://picsum.photos/seed/food${fallbackIndex}/800/600`;
+        }
+
+        const recipesWithImages = await Promise.all(
+            generatedRecipes.map(async (recipe, index) => {
+                const imageUrl = await getMealImage(recipe.title, index);
+                return {
+                    id: `recipe-${Date.now()}-${index}`,
+                    title: recipe.title,
+                    name: recipe.title,
+                    image: imageUrl,
+                    thumb: imageUrl,
+                    description: recipe.description
+                };
+            })
+        );
 
         res.json({ recipes: recipesWithImages });
 
